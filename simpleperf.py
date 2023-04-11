@@ -269,7 +269,7 @@ def send_data(clientSocket, args, mode, endTime):
 
 def connect_server(args: argparse.Namespace, mode):
     # Prepare server's IP address and port
-    serverHost = args.bind
+    serverHost = args.serverip
     serverPort = args.port
     
     print('------------------------------------------------------------')
