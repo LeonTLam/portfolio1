@@ -73,12 +73,7 @@ def parse_size_result(size, result_format):
     totBits = int(size) 
     return totBits / units[result_format.strip().lower()]
 
-def unit_per_second(result_format):
-        unit = result_format.strip().lower()
-        unitsPerSecond = {'b': 'Bps', 'kb': 'Kbps', 'mb': 'Mbps'}
-        return unitsPerSecond[unit]
 
-out = []
 # Function to handle client and receive packets from client
 def handle_client(conn, addr, args: argparse.Namespace):
     # Client connected message
@@ -88,38 +83,35 @@ def handle_client(conn, addr, args: argparse.Namespace):
     data = b'' # Initialize variable to store bits
     startInterval = 0
     startTime = time.time() # Keep count of when the task has begun, if not already started. Also calls a function that counts.
-    global outResult
+    
     try:
         # Receive packets from client
         while True: 
             chunk = conn.recv(1000)
-            # If an error occurs on client-side, server is informed and cancels further operations
-            if chunk.decode().strip() == 'exit':
-                raise Exception("Client has Disconnected")
-            if not chunk or chunk.decode().strip()[-3:] == 'BYE': # If chunks are no longer received or client sends "BYE"-message as the last three letters from a packet
-                endTime = time.time() # Record time when finished and stops counting function
-                conn.send("ACK: BYE".encode()) # Server informs the client that all packets are received
-                break
             data += chunk # Total data is stored in supporting variable
-        
-        # Process data to be used in result(s)
-        elapsedTime = endTime - startTime # Duration data was sent in seconds
-        endInterval = elapsedTime
-        dataSize = parse_size_result(len(data), args.format) # Total size of data received in requested format
-        bandwidth = parse_size_result(len(data), 'MB') / elapsedTime
-
-        # Print result(s) 
-        print('ID\t\tInterval\tTransfer\tBandwidth')
-        if args.format.lower() == 'mb': # Print out total number of bytes received with two decimals if requested format is in 'MB'
-            print(f"{addr}\t\t{startInterval:.1f} - {endInterval:.1f}\t{dataSize:.2f} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
-        else: # Print out total bytes as a whole number if requested format is a smaller form than 'MB'
-            print(f"{addr}\t\t{startInterval:.1f} - {endInterval:.1f}\t{int(dataSize)} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
+            # If an error occurs on client-side, server is informed and cancels further operations
+            if chunk.decode().strip()[-3:] == 'BYE': # If chunks are no longer received or client sends "BYE"-message as the last three letters from a packet
+                endTime = time.time() # Record time when finished and stops counting function
+                conn.sendall("ACK: BYE".encode()) # Server informs the client that all packets are received
+                break
+            
     except Exception as e:
         print(f'Error communicating with {addr}: {e}')
     
-    finally:
-        # Closes client connection when finished
-        conn.close()
+    # Process data to be used in result(s)
+    elapsedTime = endTime - startTime # Duration data was sent in seconds
+    endInterval = elapsedTime
+    dataSize = parse_size_result(len(data), args.format) # Total size of data received in requested format
+    bandwidth = parse_size_result(len(data), 'MB') / elapsedTime
+
+    # Print result(s) 
+    print('ID\t\tInterval\tTransfer\tBandwidth')
+    if args.format.lower() == 'mb': # Print out total number of bytes received with two decimals if requested format is in 'MB'
+        print(f"{addr}\t\t{startInterval:.1f} - {endInterval:.1f}\t{dataSize:.2f} {args.format}\t{bandwidth:.2f} Mbps")
+    else: # Print out total bytes as a whole number if requested format is a smaller form than 'MB'
+        print(f"{addr}\t\t{startInterval:.1f} - {endInterval:.1f}\t{int(dataSize)} {args.format}\t{bandwidth:.2f} Mbps")
+    # Closes client connection when finished
+    conn.close()
         
     
 def start_server(args: argparse.Namespace):
@@ -136,14 +128,14 @@ def start_server(args: argparse.Namespace):
         print('------------------------------------------------')
         print(f'A simpleperf server is listening on port {serverPort}')
         print('------------------------------------------------')
-        
-        threads = []
+    
         
         try: 
             while True: # Mangler å gå ut av løkke når det ikke er flere clienter som kobles til 
                 try:
                     # Accepting clients and creating threads for parallel connections
                     clientSocket, clientAddress = serverSocket.accept()
+                
                 except KeyboardInterrupt:
                     print('Closing server')
                     sys.exit(1)
@@ -162,7 +154,7 @@ def start_server(args: argparse.Namespace):
 outResult = [] # Results to be saved until all tasks are complete and all threads have closed
 
 def send_data(clientSocket, args, mode, endTime):
-    dataPacket = b'0' * 1000 # Format the packets of data in a size of 1000 bits
+    dataPacket = '0' * 1000 # Format the packets of data in a size of 1000 bits
     dataSent = 0 # Supporting variable which will help keep count of the amount packets sent in total
     startInterval  = 0 # Supporting variable to display start-interval
     global outResult # Store multiple items in global variable in case of multiple threads calling function "send_data()"
@@ -190,9 +182,9 @@ def send_data(clientSocket, args, mode, endTime):
                 formatSent = parse_size_result(diffSent, args.format)
                 bandwidth = formatSent / elapsedTime
                 if args.format.lower() == 'mb': # Print out total number of bytes received with two decimals if requested format is in 'MB'
-                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{formatSent:.2f} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
+                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{formatSent:.2f} {args.format}\t{bandwidth:.2f} Mbps")
                 else: # Print out total bytes as a whole number if requested format is a smaller form than 'MB'
-                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{int(formatSent)} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
+                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{int(formatSent)} {args.format}\t{bandwidth:.2f} Mbps")
                
         elif mode == 'num':
             # Print intervals within user-inputted max-data
@@ -210,31 +202,38 @@ def send_data(clientSocket, args, mode, endTime):
                 bandwidth = formatSent / elapsedTime
                 
                 if args.format.lower() == 'mb': # Print out total number of bytes received with two decimals if requested format is in 'MB'
-                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{formatSent:.2f} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
+                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{formatSent:.2f} {args.format}\t{bandwidth:.2f} Mbps")
                 else: # Print out total bytes as a whole number if requested format is a smaller form than 'MB'
-                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{int(formatSent)} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
+                    print(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{int(formatSent)} {args.format}\t{bandwidth:.2f} Mbps")
                
     if args.interval:
         intervalThread = threading.Thread(target=print_interval)
         intervalThread.start()
     
+    start_time = time.time()
+    print("Args.time - ", args.time)
     # If client is invoked with argument -t or --time
     if mode == 'time':
         try:
         # While elapsed time <= args.time
-            while time.time() < endTime:
+            print("Here")
+            while time.time() - start_time < args.time:
                 # Continously send packets to server and keep track of how many packets sent
-                clientSocket.sendall(dataPacket) 
+                clientSocket.send(dataPacket.encode()) 
                 dataSent += len(dataPacket)
+                
+            print("Endtime - ", time.time() - start_time)
+
+
         except socket.error:
             pass
-        
+
     # If client is invoked with argument -n or --num
     elif mode == 'num':
         try:
             # While the amount of data sent <= user-inputted max data TO BE sent
             while dataSent <= parse_size(args.num):
-                clientSocket.send(dataPacket)
+                clientSocket.send(dataPacket.encode())
                 dataSent += len(dataPacket)
         except socket.error:
             pass
@@ -243,14 +242,12 @@ def send_data(clientSocket, args, mode, endTime):
                 intervalThread.join()
                 
     # After total time or max data is exceeded, client sends confirmation to the server
+    print('bye')
     clientSocket.sendall('BYE'.encode()) 
     
     # Client waits for server's response 
-    while True:
-        message = clientSocket.recv(1024)
-        # Store "endTime" if server responds with confirmation
-        if message.decode().strip() == "ACK: BYE":
-            break
+    message = clientSocket.recv(1024)
+    print(message)
 
     # Process data to be used in result(s)
     elapsedTime = time.time() - (endTime - args.time)
@@ -258,15 +255,14 @@ def send_data(clientSocket, args, mode, endTime):
     bandwidth = dataSize / elapsedTime
     
     if args.format.lower() == 'mb': # Print out total number of bytes received with two decimals if requested format is in 'MB'
-        outResult.append(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{dataSize:.2f} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
+        outResult.append(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{dataSize:.2f} {args.format}\t{bandwidth:.2f} Mbps")
     else: # Print out total bytes as a whole number if requested format is a smaller form than 'MB'
-        outResult.append(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{int(dataSize)} {args.format}\t{bandwidth:.2f} {unit_per_second('Mb')}")
+        outResult.append(f"{clientIp}:{clientPort}\t{startInterval:.1f} - {elapsedTime:.1f}\t{int(dataSize)} {args.format}\t{bandwidth:.2f} Mbps")
                
     clientSocket.close()
         
 
 # Function to create thread(s) to be further connected to the addressed server    
-
 def connect_server(args: argparse.Namespace, mode):
     # Prepare server's IP address and port
     serverHost = args.serverip
