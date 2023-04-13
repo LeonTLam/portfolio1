@@ -219,7 +219,7 @@ def send_data(clientSocket, args, mode, endTime):
                 # Continously send packets to server and keep track of how many packets sent
                 clientSocket.send(dataPacket.encode()) 
                 dataSent += len(dataPacket)
-                
+            
         except socket.error:
             pass
 
@@ -241,7 +241,6 @@ def send_data(clientSocket, args, mode, endTime):
     
     # Client waits for server's response 
     message = clientSocket.recv(1024)
-    print(message)
 
     # Process data to be used in result(s)
     elapsedTime = time.time() - (endTime - args.time)
