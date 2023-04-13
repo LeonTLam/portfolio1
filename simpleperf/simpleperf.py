@@ -88,7 +88,7 @@ def handle_client(conn, addr, args: argparse.Namespace):
         # Receive packets from client
         while True: 
             chunk = conn.recv(1000)
-            data += chunk # Total data is stored in supporting variable
+            data += len(chunk) # Total data is stored in supporting variable
             # If an error occurs on client-side, server is informed and cancels further operations
             if chunk.decode().strip()[-3:] == 'BYE': # If chunks are no longer received or client sends "BYE"-message as the last three letters from a packet
                 endTime = time.time() # Record time when finished and stops counting function
@@ -101,8 +101,8 @@ def handle_client(conn, addr, args: argparse.Namespace):
     # Process data to be used in result(s)
     elapsedTime = endTime - startTime # Duration data was sent in seconds
     endInterval = elapsedTime
-    dataSize = parse_size_result(len(data), args.format) # Total size of data received in requested format
-    bandwidth = parse_size_result(len(data), 'MB') / elapsedTime
+    dataSize = parse_size_result((data)*8, args.format) # Total size of data received in requested format
+    bandwidth = parse_size_result((data), 'MB') / elapsedTime
 
     # Print result(s) 
     print('ID\t\tInterval\tTransfer\tBandwidth')
@@ -251,7 +251,7 @@ def send_data(clientSocket, args, mode, endTime):
 
     # Process data to be used in result(s)
     elapsedTime = time.time() - (endTime - args.time)
-    dataSize = parse_size_result(dataSent, args.format)
+    dataSize = parse_size_result(dataSent*8, args.format)
     bandwidth = dataSize / elapsedTime
     
     if args.format.lower() == 'mb': # Print out total number of bytes received with two decimals if requested format is in 'MB'
